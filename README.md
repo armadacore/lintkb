@@ -1,7 +1,7 @@
 # lintkb
 
 [![npm version](https://img.shields.io/npm/v/lintkb.svg)](https://www.npmjs.com/package/lintkb)
-[![license](https://img.shields.io/npm/l/lintkb.svg)](https://github.com/armadacore/lintkb/blob/master/LICENSE)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/armadacore/lintkb/blob/master/LICENSE)
 [![node](https://img.shields.io/node/v/lintkb.svg)](https://nodejs.org)
 
 > AI-agnostic ESLint wrapper that turns lint findings into **concrete instructions for any AI agent**, backed by a project-local Markdown knowledge base.
