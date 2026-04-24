@@ -1,6 +1,15 @@
 import { Command } from "commander";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { runInit } from "./commands/init.js";
 import { runLint } from "./commands/lint.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// dist/cli/index.js  ->  ../../package.json
+const pkg = JSON.parse(
+  readFileSync(join(__dirname, "..", "..", "package.json"), "utf8"),
+) as { version: string };
 
 const program = new Command();
 
@@ -10,7 +19,7 @@ program
     "AI-agnostic ESLint wrapper that enriches findings with concrete AI " +
       "instructions pointing to a project-local Markdown knowledge base.",
   )
-  .version("0.1.0");
+  .version(pkg.version);
 
 /**
  * Default action: lint.
