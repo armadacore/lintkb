@@ -16,6 +16,25 @@ export interface LintkbConfig {
    * Example: ["no-unused-vars", "@typescript-eslint/no-unused-vars"]
    */
   selfExplanatory?: string[];
+  /**
+   * Override the AI instruction text per case. Any field that is omitted
+   * falls back to the built-in English default.
+   *
+   * Available variables (replaced with the finding's values):
+   *   {ruleId}  {kbPath}  {file}  {line}  {column}
+   *
+   * Multi-line strings are supported. Lines are emitted exactly as written.
+   */
+  instructions?: InstructionTemplates;
+}
+
+export interface InstructionTemplates {
+  /** Used when the KB entry exists on disk. */
+  kbExists?: string;
+  /** Used when the KB entry is missing on disk. */
+  kbMissing?: string;
+  /** Used when the rule is listed in `selfExplanatory`. */
+  selfExplanatory?: string;
 }
 
 export interface ResolvedConfig extends LintkbConfig {

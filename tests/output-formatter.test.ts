@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buildAiInstruction,
+  DEFAULT_INSTRUCTION_TEMPLATES,
   enrichFindings,
   formatJson,
   formatText,
+  renderTemplate,
 } from "../src/core/output-formatter.js";
 import type { Finding, ResolvedConfig } from "../src/core/types.js";
 
@@ -83,6 +85,79 @@ describe("buildAiInstruction", () => {
     expect(txt).toContain("@typescript-eslint/no-unused-vars");
     expect(txt).toContain("Apply the fix directly");
   });
+
+  it("uses custom kbExists template when provided", () => {
+    const txt = buildAiInstruction(
+      findingWithRule,
+      ".rules/typescript-eslint__no-explicit-any.md",
+      true,
+      true,
+      { kbExists: "CUSTOM {ruleId} -> {kbPath} at {file}:{line}:{column}" },
+    );
+    expect(txt).toBe(
+      "CUSTOM @typescript-eslint/no-explicit-any -> " +
+        ".rules/typescript-eslint__no-explicit-any.md at src/foo.ts:12:5",
+    );
+  });
+
+  it("uses custom kbMissing template when provided", () => {
+    const txt = buildAiInstruction(
+      findingWithRule,
+      ".rules/typescript-eslint__no-explicit-any.md",
+      false,
+      true,
+      { kbMissing: "MISSING {ruleId} -> {kbPath}" },
+    );
+    expect(txt).toBe(
+      "MISSING @typescript-eslint/no-explicit-any -> " +
+        ".rules/typescript-eslint__no-explicit-any.md",
+    );
+  });
+
+  it("uses custom selfExplanatory template when provided", () => {
+    const txt = buildAiInstruction(findingUnusedVars, null, false, false, {
+      selfExplanatory: "SELF {ruleId} @ {file}:{line}",
+    });
+    expect(txt).toBe("SELF @typescript-eslint/no-unused-vars @ src/foo.ts:4");
+  });
+
+  it("falls back to defaults for fields not overridden", () => {
+    const txt = buildAiInstruction(
+      findingWithRule,
+      ".rules/typescript-eslint__no-explicit-any.md",
+      false,
+      true,
+      { kbExists: "OVERRIDDEN" }, // only kbExists overridden
+    );
+    expect(txt).toContain("No knowledge base entry exists");
+  });
+
+  it("Case C ignores custom instructions (hardcoded)", () => {
+    const txt = buildAiInstruction(findingWithoutRule, null, false, true, {
+      kbExists: "X",
+      kbMissing: "Y",
+      selfExplanatory: "Z",
+    });
+    expect(txt).toContain("no rule id");
+  });
+});
+
+describe("renderTemplate", () => {
+  it("substitutes known placeholders", () => {
+    expect(
+      renderTemplate("a={a} b={b}", { a: "1", b: "2" }),
+    ).toBe("a=1 b=2");
+  });
+
+  it("leaves unknown placeholders untouched", () => {
+    expect(renderTemplate("{a} {unknown}", { a: "1" })).toBe("1 {unknown}");
+  });
+
+  it("DEFAULT_INSTRUCTION_TEMPLATES contains kbExists, kbMissing, selfExplanatory", () => {
+    expect(DEFAULT_INSTRUCTION_TEMPLATES.kbExists).toContain("{kbPath}");
+    expect(DEFAULT_INSTRUCTION_TEMPLATES.kbMissing).toContain("{ruleId}");
+    expect(DEFAULT_INSTRUCTION_TEMPLATES.selfExplanatory).toContain("{ruleId}");
+  });
 });
 
 describe("enrichFindings", () => {
@@ -112,6 +187,20 @@ describe("enrichFindings", () => {
     expect(unused.kbFileName).toBe(null);
     expect(unused.kbExists).toBe(false);
     expect(unused.aiInstruction).toContain("self-explanatory");
+  });
+
+  it("passes config.instructions through to buildAiInstruction", () => {
+    const cfgWithCustom: ResolvedConfig = {
+      ...cfg,
+      instructions: {
+        kbMissing: "FIX {ruleId} via {kbPath} ({file}:{line}:{column})",
+      },
+    };
+    const result = enrichFindings([findingWithRule], cfgWithCustom);
+    expect(result.findings[0]!.aiInstruction).toBe(
+      "FIX @typescript-eslint/no-explicit-any via " +
+        ".rules/typescript-eslint__no-explicit-any.md (src/foo.ts:12:5)",
+    );
   });
 });
 

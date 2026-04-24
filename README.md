@@ -192,23 +192,86 @@ Each target project has a `.lintkbrc.json` at its root:
 {
   "kbDir": ".rules",
   "eslintConfig": "./eslint.config.js",
-  "selfExplanatory": ["no-debugger", "@typescript-eslint/no-unused-vars"]
+  "selfExplanatory": [
+    "no-debugger",
+    "@typescript-eslint/no-unused-vars"
+  ],
+  "instructions": {
+    "kbExists": "→ AI INSTRUCTION ({file}:{line}:{column}):\n  Read {kbPath} and apply the described fix to this finding."
+  }
 }
 ```
 
-| Field             | Meaning                                                                                                                             | Default                 |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `kbDir`           | Directory (relative to project root) that holds the Markdown knowledge base.                                                        | `.rules`                |
-| `eslintConfig`    | Optional path to an ESLint flat config. If absent, ESLint auto-discovers it.                                                        | (ESLint auto-discovery) |
-| `selfExplanatory` | List of ESLint rule ids whose findings need **no** Markdown entry. The AI is told to fix them directly based on the ESLint message. | `[]`                    |
+| Field             | Meaning                                                                                                                                | Default                 |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `kbDir`           | Directory (relative to project root) that holds the Markdown knowledge base.                                                           | `.rules`                |
+| `eslintConfig`    | Optional path to an ESLint flat config. If absent, ESLint auto-discovers it.                                                           | (ESLint auto-discovery) |
+| `selfExplanatory` | List of ESLint rule ids whose findings need **no** Markdown entry. The AI is told to fix them directly based on the ESLint message.    | `[]`                    |
+| `instructions`    | Override the AI instruction text per case. See [Customizing AI instructions](#customizing-ai-instructions).                            | (built-in defaults)     |
 
 ### When to use `selfExplanatory`
 
 Some ESLint findings are already crystal clear from their message alone (e.g. `no-debugger`, `no-unused-vars`, `prefer-const`). Maintaining a `.md` for them is overhead. List them in `selfExplanatory` and `lintkb` will:
 
 - skip the KB lookup entirely,
-- emit an AI INSTRUCTION saying _"this rule is self-explanatory, fix directly from the ESLint message"_,
+- emit an AI INSTRUCTION saying *"this rule is self-explanatory, fix directly from the ESLint message"*,
 - set `kbRequired: false` and `kbPath: null` in the JSON output.
+
+### Customizing AI instructions
+
+The wording of the AI INSTRUCTION block is fully configurable per case via `instructions` in `.lintkbrc.json`. Use this to:
+
+- speak to your AI agent in a different tone or language,
+- enforce project-specific conventions (e.g. *"never run lintkb in CI without `--format json`"*),
+- swap in stronger directives (e.g. *"do not modify imports until the user confirms"*).
+
+Each case has its own template. Any field you omit falls back to the built-in English default.
+
+| Field                         | When it is used                                              |
+| ----------------------------- | ------------------------------------------------------------ |
+| `instructions.kbExists`       | The Markdown file for the rule **exists** in `kbDir`.        |
+| `instructions.kbMissing`      | The Markdown file for the rule **does not exist** in `kbDir`. |
+| `instructions.selfExplanatory`| The rule is listed in `selfExplanatory`.                     |
+
+> Findings without a rule id (parser/fatal errors) always use a hardcoded fallback and cannot be customized.
+
+#### Available variables
+
+Templates may reference these placeholders in `{name}` syntax:
+
+| Variable    | Value                                                                       |
+| ----------- | --------------------------------------------------------------------------- |
+| `{ruleId}`  | The ESLint rule id (e.g. `@typescript-eslint/no-explicit-any`).             |
+| `{kbPath}`  | Project-relative path to the KB entry (empty for self-explanatory rules).   |
+| `{file}`    | Project-relative path of the file containing the finding.                   |
+| `{line}`    | 1-based line number of the finding.                                         |
+| `{column}`  | 1-based column of the finding.                                              |
+
+Unknown placeholders are left untouched in the output, so a typo like `{rulId}` is immediately visible.
+
+#### Example: minimal, German wording, no header
+
+```json
+{
+  "instructions": {
+    "kbExists": "Lies {kbPath} und wende die dort beschriebene Lösung auf {file}:{line} an.",
+    "kbMissing": "Für Regel \"{ruleId}\" gibt es noch keine Anleitung. Erstelle {kbPath} gemeinsam mit dem User und wende die Lösung dann an.",
+    "selfExplanatory": "Regel \"{ruleId}\" ist selbsterklärend – behebe direkt anhand der ESLint-Meldung."
+  }
+}
+```
+
+#### Example: override only one case
+
+```json
+{
+  "instructions": {
+    "kbMissing": "STOP. Ask the user before creating {kbPath} for rule \"{ruleId}\"."
+  }
+}
+```
+
+`kbExists` and `selfExplanatory` keep their built-in defaults.
 
 ---
 
@@ -267,7 +330,7 @@ for (const f of result.findings) {
 
 ### Exported types
 
-- `LintkbConfig`, `ResolvedConfig`
+- `LintkbConfig`, `ResolvedConfig`, `InstructionTemplates`
 - `Finding`, `EnrichedFinding`, `FindingSeverity`, `LintRunResult`
 
 ### Exported functions
@@ -278,7 +341,9 @@ for (const f of result.findings) {
 - `formatText(result)` / `formatJson(result)` — render the result.
 - `ruleIdToFileName(id)` / `ruleIdToKbRelativePath(id, kbDir)` — the deterministic rule-id mapping.
 - `kbEntryExists(path, projectRoot)` — filesystem check for a KB entry.
-- `buildAiInstruction(finding, kbPath, kbExists, kbRequired)` — build a single instruction block.
+- `buildAiInstruction(finding, kbPath, kbExists, kbRequired, instructions?)` — build a single instruction block.
+- `renderTemplate(template, vars)` — substitute `{name}` placeholders.
+- `DEFAULT_INSTRUCTION_TEMPLATES` — the built-in English templates used when `instructions` is omitted.
 
 ---
 

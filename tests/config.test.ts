@@ -67,6 +67,30 @@ describe("loadConfig", () => {
     expect(cfg.selfExplanatory).toEqual([]);
   });
 
+  it("loads custom instructions templates", () => {
+    writeFileSync(
+      join(tmpRoot, CONFIG_FILENAME),
+      JSON.stringify({
+        instructions: {
+          kbExists: "READ {kbPath}",
+          kbMissing: "CREATE {kbPath} for {ruleId}",
+          selfExplanatory: "SKIP {ruleId}",
+        },
+      }),
+    );
+    const cfg = loadConfig(tmpRoot);
+    expect(cfg.instructions).toEqual({
+      kbExists: "READ {kbPath}",
+      kbMissing: "CREATE {kbPath} for {ruleId}",
+      selfExplanatory: "SKIP {ruleId}",
+    });
+  });
+
+  it("instructions is undefined by default", () => {
+    const cfg = loadConfig(tmpRoot);
+    expect(cfg.instructions).toBeUndefined();
+  });
+
   it("throws on invalid JSON", () => {
     writeFileSync(join(tmpRoot, CONFIG_FILENAME), "{not-json");
     expect(() => loadConfig(tmpRoot)).toThrow(/Failed to parse/);
