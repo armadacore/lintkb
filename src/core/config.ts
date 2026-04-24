@@ -6,6 +6,7 @@ export const CONFIG_FILENAME = ".lintkbrc.json";
 
 export const DEFAULT_CONFIG: LintkbConfig = {
   kbDir: ".rules",
+  selfExplanatory: [],
 };
 
 /**
@@ -52,6 +53,8 @@ export function loadConfig(cwd: string): ResolvedConfig {
   const merged: LintkbConfig = {
     ...DEFAULT_CONFIG,
     ...userConfig,
+    selfExplanatory:
+      userConfig.selfExplanatory ?? DEFAULT_CONFIG.selfExplanatory ?? [],
   };
 
   const kbDirAbsolute = isAbsolute(merged.kbDir)

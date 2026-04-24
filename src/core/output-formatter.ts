@@ -10,24 +10,43 @@ import { ruleIdToFileName, ruleIdToKbRelativePath } from "./rule-resolver.js";
 /**
  * Build the human-readable AI INSTRUCTION block (English) for a finding.
  *
- * Two cases:
- *   A) KB entry exists  -> tell the AI to read the file and apply the fix.
- *   B) KB entry missing -> tell the AI to ask the user, create the .md, then fix.
- *   C) ruleId is null   -> can't link to KB; instruct the AI to handle the
- *                          (usually fatal) message manually.
+ * Cases:
+ *   A) KB entry exists       -> tell the AI to read the file and apply the fix.
+ *   B) KB entry missing      -> tell the AI to ask the user, create the .md, then fix.
+ *   C) ruleId is null        -> can't link to KB; instruct manual handling.
+ *   D) Rule is self-explanatory (configured) -> no KB needed; fix directly
+ *                              based on the ESLint message.
  */
 export function buildAiInstruction(
   finding: Finding,
   kbPath: string | null,
   kbExists: boolean,
+  kbRequired: boolean,
 ): string {
   const location = `${finding.relativeFilePath}:${finding.line}:${finding.column}`;
 
-  if (!finding.ruleId || !kbPath) {
+  if (!finding.ruleId) {
     return [
       `→ AI INSTRUCTION (${location}):`,
       `  This finding has no rule id (likely a parser or fatal error).`,
       `  Read the message above and resolve the underlying problem manually.`,
+    ].join("\n");
+  }
+
+  if (!kbRequired) {
+    return [
+      `→ AI INSTRUCTION (${location}):`,
+      `  Rule "${finding.ruleId}" is configured as self-explanatory.`,
+      `  No knowledge base entry is required. Apply the fix directly based`,
+      `  on the ESLint message above.`,
+    ].join("\n");
+  }
+
+  if (!kbPath) {
+    return [
+      `→ AI INSTRUCTION (${location}):`,
+      `  Could not resolve a knowledge base path for "${finding.ruleId}".`,
+      `  Resolve the underlying problem manually.`,
     ].join("\n");
   }
 
@@ -54,24 +73,32 @@ export function enrichFindings(
   findings: Finding[],
   config: ResolvedConfig,
 ): LintRunResult {
+  const selfExplanatory = new Set(config.selfExplanatory ?? []);
+
   const enriched: EnrichedFinding[] = findings.map((f) => {
     let kbFileName: string | null = null;
     let kbPath: string | null = null;
     let kbExists = false;
+    let kbRequired = true;
 
-    if (f.ruleId) {
+    if (f.ruleId && selfExplanatory.has(f.ruleId)) {
+      kbRequired = false;
+    }
+
+    if (f.ruleId && kbRequired) {
       kbFileName = ruleIdToFileName(f.ruleId);
       kbPath = ruleIdToKbRelativePath(f.ruleId, config.kbDir);
       kbExists = kbEntryExists(kbPath, config.projectRoot);
     }
 
-    const aiInstruction = buildAiInstruction(f, kbPath, kbExists);
+    const aiInstruction = buildAiInstruction(f, kbPath, kbExists, kbRequired);
 
     return {
       ...f,
       kbFileName,
       kbPath,
       kbExists,
+      kbRequired,
       aiInstruction,
     };
   });
@@ -84,21 +111,12 @@ export function enrichFindings(
 
 /**
  * Render the lint result as text in the lintkb output format.
- *
- * Layout per file:
- *
- *   <relativeFilePath>
- *     <line>:<col>  <severity>  <message>  <ruleId>
- *
- *     → AI INSTRUCTION (...):
- *       ...
  */
 export function formatText(result: LintRunResult): string {
   if (result.findings.length === 0) {
     return "lintkb: no findings.\n";
   }
 
-  // Group by file for readability.
   const byFile = new Map<string, EnrichedFinding[]>();
   for (const f of result.findings) {
     const list = byFile.get(f.relativeFilePath) ?? [];
@@ -130,7 +148,7 @@ export function formatText(result: LintRunResult): string {
 
 /**
  * Render the lint result as JSON. Each finding includes kbPath, kbExists,
- * and aiInstruction so an AI agent can consume it without parsing text.
+ * kbRequired, and aiInstruction so an AI agent can consume it without parsing text.
  */
 export function formatJson(result: LintRunResult): string {
   return JSON.stringify(

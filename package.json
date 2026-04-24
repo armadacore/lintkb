@@ -1,6 +1,6 @@
 {
   "name": "lintkb",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "AI-agnostic ESLint wrapper that enriches lint findings with concrete AI instructions pointing to a project-local Markdown knowledge base.",
   "type": "module",
   "bin": {

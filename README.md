@@ -108,14 +108,31 @@ Each target project has a `.lintkbrc.json` at its root:
 ```json
 {
   "kbDir": ".rules",
-  "eslintConfig": "./eslint.config.js"
+  "eslintConfig": "./eslint.config.js",
+  "selfExplanatory": [
+    "no-debugger",
+    "@typescript-eslint/no-unused-vars"
+  ]
 }
 ```
 
-| Field          | Meaning                                                                          | Default                  |
-| -------------- | -------------------------------------------------------------------------------- | ------------------------ |
-| `kbDir`        | Directory (relative to project root) that holds the Markdown knowledge base.     | `.rules`                 |
-| `eslintConfig` | Optional path to an ESLint flat config. If absent, ESLint auto-discovers it.     | (ESLint auto-discovery)  |
+| Field             | Meaning                                                                                                | Default                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------ | ------------------------ |
+| `kbDir`           | Directory (relative to project root) that holds the Markdown knowledge base.                           | `.rules`                 |
+| `eslintConfig`    | Optional path to an ESLint flat config. If absent, ESLint auto-discovers it.                           | (ESLint auto-discovery)  |
+| `selfExplanatory` | List of ESLint rule ids whose findings need **no** Markdown entry. The AI is told to fix them directly based on the ESLint message. | `[]` |
+
+### When to use `selfExplanatory`
+
+Some ESLint findings are already crystal clear from their message alone
+(e.g. `no-debugger`, `no-unused-vars`, `prefer-const`). For those rules
+maintaining a `.md` is overhead. List them in `selfExplanatory` and
+`lintkb` will:
+
+- skip the KB lookup entirely,
+- emit an AI INSTRUCTION saying *"this rule is self-explanatory, fix
+  directly from the ESLint message"*,
+- set `kbRequired: false` and `kbPath: null` in the JSON output.
 
 ---
 

@@ -48,6 +48,25 @@ describe("loadConfig", () => {
     expect(cfg.kbDirAbsolute).toBe(resolve(tmpRoot, "knowledge"));
   });
 
+  it("loads selfExplanatory rule list", () => {
+    writeFileSync(
+      join(tmpRoot, CONFIG_FILENAME),
+      JSON.stringify({
+        selfExplanatory: ["no-debugger", "@typescript-eslint/no-unused-vars"],
+      }),
+    );
+    const cfg = loadConfig(tmpRoot);
+    expect(cfg.selfExplanatory).toEqual([
+      "no-debugger",
+      "@typescript-eslint/no-unused-vars",
+    ]);
+  });
+
+  it("defaults selfExplanatory to empty array", () => {
+    const cfg = loadConfig(tmpRoot);
+    expect(cfg.selfExplanatory).toEqual([]);
+  });
+
   it("throws on invalid JSON", () => {
     writeFileSync(join(tmpRoot, CONFIG_FILENAME), "{not-json");
     expect(() => loadConfig(tmpRoot)).toThrow(/Failed to parse/);

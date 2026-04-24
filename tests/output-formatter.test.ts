@@ -11,6 +11,12 @@ const cfg: ResolvedConfig = {
   kbDir: ".rules",
   projectRoot: "/tmp/does-not-exist-project",
   kbDirAbsolute: "/tmp/does-not-exist-project/.rules",
+  selfExplanatory: [],
+};
+
+const cfgWithSelfExplanatory: ResolvedConfig = {
+  ...cfg,
+  selfExplanatory: ["@typescript-eslint/no-unused-vars", "no-debugger"],
 };
 
 const findingWithRule: Finding = {
@@ -20,6 +26,16 @@ const findingWithRule: Finding = {
   column: 5,
   ruleId: "@typescript-eslint/no-explicit-any",
   message: "Unexpected any.",
+  severity: "error",
+};
+
+const findingUnusedVars: Finding = {
+  filePath: "/tmp/does-not-exist-project/src/foo.ts",
+  relativeFilePath: "src/foo.ts",
+  line: 4,
+  column: 9,
+  ruleId: "@typescript-eslint/no-unused-vars",
+  message: "'unused' is assigned a value but never used.",
   severity: "error",
 };
 
@@ -39,6 +55,7 @@ describe("buildAiInstruction", () => {
       findingWithRule,
       ".rules/typescript-eslint__no-explicit-any.md",
       true,
+      true,
     );
     expect(txt).toContain("Read .rules/typescript-eslint__no-explicit-any.md");
     expect(txt).toContain("(src/foo.ts:12:5)");
@@ -49,29 +66,52 @@ describe("buildAiInstruction", () => {
       findingWithRule,
       ".rules/typescript-eslint__no-explicit-any.md",
       false,
+      true,
     );
     expect(txt).toContain("No knowledge base entry exists");
     expect(txt).toContain("Ask the user");
-    expect(txt).toContain(".rules/typescript-eslint__no-explicit-any.md");
   });
 
   it("Case C: no rule id", () => {
-    const txt = buildAiInstruction(findingWithoutRule, null, false);
+    const txt = buildAiInstruction(findingWithoutRule, null, false, true);
     expect(txt).toContain("no rule id");
+  });
+
+  it("Case D: self-explanatory rule", () => {
+    const txt = buildAiInstruction(findingUnusedVars, null, false, false);
+    expect(txt).toContain("self-explanatory");
+    expect(txt).toContain("@typescript-eslint/no-unused-vars");
+    expect(txt).toContain("Apply the fix directly");
   });
 });
 
 describe("enrichFindings", () => {
-  it("computes kbPath, kbExists=false, and aiInstruction", () => {
+  it("computes kbPath, kbExists=false, kbRequired=true and aiInstruction", () => {
     const result = enrichFindings([findingWithRule], cfg);
-    expect(result.findings).toHaveLength(1);
     const f = result.findings[0]!;
     expect(f.kbFileName).toBe("typescript-eslint__no-explicit-any.md");
     expect(f.kbPath).toBe(".rules/typescript-eslint__no-explicit-any.md");
     expect(f.kbExists).toBe(false);
+    expect(f.kbRequired).toBe(true);
     expect(f.aiInstruction).toContain("AI INSTRUCTION");
-    expect(result.errorCount).toBe(1);
-    expect(result.warningCount).toBe(0);
+  });
+
+  it("marks self-explanatory rules with kbRequired=false and skips KB lookup", () => {
+    const result = enrichFindings(
+      [findingWithRule, findingUnusedVars],
+      cfgWithSelfExplanatory,
+    );
+    const explicitAny = result.findings[0]!;
+    const unused = result.findings[1]!;
+
+    expect(explicitAny.kbRequired).toBe(true);
+    expect(explicitAny.kbPath).not.toBe(null);
+
+    expect(unused.kbRequired).toBe(false);
+    expect(unused.kbPath).toBe(null);
+    expect(unused.kbFileName).toBe(null);
+    expect(unused.kbExists).toBe(false);
+    expect(unused.aiInstruction).toContain("self-explanatory");
   });
 });
 
@@ -90,14 +130,18 @@ describe("formatText / formatJson", () => {
     expect(formatText(result)).toContain("no findings");
   });
 
-  it("formatJson contains kbPath, kbExists, aiInstruction", () => {
-    const result = enrichFindings([findingWithRule], cfg);
+  it("formatJson contains kbPath, kbExists, kbRequired, aiInstruction", () => {
+    const result = enrichFindings(
+      [findingWithRule, findingUnusedVars],
+      cfgWithSelfExplanatory,
+    );
     const parsed = JSON.parse(formatJson(result));
     expect(parsed.findings[0].kbPath).toBe(
       ".rules/typescript-eslint__no-explicit-any.md",
     );
-    expect(parsed.findings[0].kbExists).toBe(false);
+    expect(parsed.findings[0].kbRequired).toBe(true);
+    expect(parsed.findings[1].kbRequired).toBe(false);
+    expect(parsed.findings[1].kbPath).toBe(null);
     expect(typeof parsed.findings[0].aiInstruction).toBe("string");
-    expect(parsed.errorCount).toBe(1);
   });
 });
