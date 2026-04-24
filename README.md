@@ -1,58 +1,63 @@
 # lintkb
 
+[![npm version](https://img.shields.io/npm/v/lintkb.svg)](https://www.npmjs.com/package/lintkb)
+[![license](https://img.shields.io/npm/l/lintkb.svg)](https://github.com/armadacore/lintkb/blob/master/LICENSE)
+[![node](https://img.shields.io/node/v/lintkb.svg)](https://nodejs.org)
+
 > AI-agnostic ESLint wrapper that turns lint findings into **concrete instructions for any AI agent**, backed by a project-local Markdown knowledge base.
 
-`lintkb` does not invent its own ESLint rules. It runs your existing ESLint setup (TypeScript, React, whatever you configured) and **enriches every finding with a clear instruction telling an AI agent which Markdown file to read in order to understand and fix the problem in the way your project wants it fixed**.
+`lintkb` does not invent its own ESLint rules. It runs your existing ESLint setup and **enriches every finding with a clear instruction telling an AI agent which Markdown file to read in order to fix the problem the way your team wants it fixed**.
 
-If the Markdown file does not exist yet, the instruction tells the AI to **collaborate with the user to create it**, so the knowledge base grows organically as you encounter findings.
+If the Markdown file does not exist yet, the instruction tells the AI to **collaborate with the user to create it** — the knowledge base grows organically as you encounter findings.
 
 ---
 
-## Mission in one sentence
+## Why lintkb?
 
-Bridge the gap between *"ESLint says rule X is violated"* and *"the AI knows exactly how this team wants it solved"* — without binding the project to any specific AI vendor.
+ESLint tells you _what_ is wrong. It cannot tell an AI _how this team wants it solved_. Generic AI fixes drift away from project conventions, and pasting your style guide into every prompt does not scale.
+
+`lintkb` closes that gap by attaching a deterministic pointer to each finding:
+
+> _"This violation maps to `.rules/<rule>.md`. Read it. Apply the fix. If the file is missing, ask the user and create it."_
+
+The result is a self-growing, version-controlled, human-reviewable knowledge base that any AI agent — Claude Code, Cursor, OpenCode, Copilot CLI, or your own — can consume without integration work.
+
+---
+
+## Quick start (60 seconds)
+
+```bash
+# 1. install
+npm install --save-dev lintkb
+
+# 2. initialize the knowledge base
+npx lintkb init
+
+# 3. lint and read AI-ready output
+npx lintkb
+```
+
+That's it. Pipe the output to your AI agent of choice and it will know which Markdown file to read for each finding.
 
 ---
 
 ## Installation
 
-`lintkb` is published as a single npm package. ESLint 9+ is a **peer dependency** — bring your own.
-
-### From a local tarball (current PoC distribution)
-
-```bash
-# in the lintkb repo
-npm pack
-# → produces lintkb-<version>.tgz
-
-# in your target project
-npm install --save-dev /absolute/path/to/lintkb-<version>.tgz
-```
-
-### From npm (once published)
-
 ```bash
 npm install --save-dev lintkb
 ```
 
-### Requirements
+**Requirements**
 
 - Node.js `>=18.17.0`
-- ESLint `^9` already installed in the target project (flat config)
-
-### First run in your project
-
-```bash
-npx lintkb init    # creates .lintkbrc.json + .rules/
-npx lintkb         # lints the whole project
-```
+- ESLint `^9` already installed in the target project (flat config). ESLint is a **peer dependency** — bring your own.
 
 ---
 
 ## How it works
 
 ```
-1. dev/agent runs:  npx lintkb lint
+1. dev/agent runs:  npx lintkb
 2. lintkb runs ESLint programmatically
 3. For every finding:
      - the rule id (e.g. "@typescript-eslint/no-explicit-any") is normalized
@@ -66,6 +71,28 @@ npx lintkb         # lints the whole project
 ```
 
 The knowledge base lives **inside the target project** (default `.rules/`) and is committed to that project's repo. Each entry is plain Markdown so it can be reviewed, edited, and version-controlled like any other documentation.
+
+### Workflow with an AI agent
+
+```
+┌──────────┐   npx lintkb   ┌────────────┐
+│ user/AI  │───────────────▶│  lintkb    │
+└──────────┘                └─────┬──────┘
+                                  │ findings + AI INSTRUCTION
+                                  ▼
+                             ┌──────────┐
+                             │  any AI  │
+                             └────┬─────┘
+                                  │
+              ┌───────────────────┴───────────────────┐
+              ▼                                       ▼
+      ┌────────────────┐                   ┌──────────────────┐
+      │ KB entry found │                   │ KB entry missing │
+      │ → read .md     │                   │ → ask user       │
+      │ → apply fix    │                   │ → write .md      │
+      └────────────────┘                   │ → apply fix      │
+                                           └──────────────────┘
+```
 
 ---
 
@@ -97,7 +124,63 @@ src/bar.ts
     On the next lint run this entry will be reused.
 ```
 
+### Case C — self-explanatory rule
+
+```
+src/baz.ts
+  4:1  error  Unexpected debugger statement  no-debugger
+
+  → AI INSTRUCTION (src/baz.ts:4:1):
+    Rule "no-debugger" is configured as self-explanatory.
+    No knowledge base entry is required. Apply the fix directly based
+    on the ESLint message above.
+```
+
 A machine-readable JSON output is also available via `--format json`.
+
+---
+
+## CLI
+
+`lint` is the **default action**, so you can pass the path directly.
+
+| Command                       | Purpose                                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------------------------- |
+| `lintkb init`                 | Create `.lintkbrc.json` and the directory referenced by `kbDir` in the current project.           |
+| `lintkb [path]`               | Default action. Run ESLint on `path` (default `.`) and print findings with AI INSTRUCTION blocks. |
+| `lintkb [path] --format json` | Same, but as JSON. Each finding includes `kbPath`, `kbExists`, `kbRequired`, `aiInstruction`.     |
+| `lintkb lint [path]`          | Same as `lintkb [path]` — kept for explicitness.                                                  |
+| `lintkb --version`            | Print the installed lintkb version.                                                               |
+| `lintkb --help`               | Show all commands and options.                                                                    |
+
+### `init` options
+
+| Option           | Description                                       |
+| ---------------- | ------------------------------------------------- |
+| `--kb-dir <dir>` | Override the default `kbDir` (default: `.rules`). |
+| `--force`        | Overwrite an existing `.lintkbrc.json`.           |
+
+### `lint` options
+
+| Option                  | Description                      |
+| ----------------------- | -------------------------------- |
+| `--format <text\|json>` | Output format (default: `text`). |
+
+### Examples
+
+```bash
+lintkb                       # lint the whole project
+lintkb packages/core/src     # lint a specific path
+lintkb . --format json       # JSON output for AI consumers
+```
+
+### Exit codes
+
+| Code | Meaning                                                          |
+| ---- | ---------------------------------------------------------------- |
+| `0`  | No error-severity findings.                                      |
+| `1`  | At least one error-severity finding was reported.                |
+| `2`  | Unexpected failure (config error, ESLint crash, I/O error, ...). |
 
 ---
 
@@ -109,174 +192,134 @@ Each target project has a `.lintkbrc.json` at its root:
 {
   "kbDir": ".rules",
   "eslintConfig": "./eslint.config.js",
-  "selfExplanatory": [
-    "no-debugger",
-    "@typescript-eslint/no-unused-vars"
-  ]
+  "selfExplanatory": ["no-debugger", "@typescript-eslint/no-unused-vars"]
 }
 ```
 
-| Field             | Meaning                                                                                                | Default                  |
-| ----------------- | ------------------------------------------------------------------------------------------------------ | ------------------------ |
-| `kbDir`           | Directory (relative to project root) that holds the Markdown knowledge base.                           | `.rules`                 |
-| `eslintConfig`    | Optional path to an ESLint flat config. If absent, ESLint auto-discovers it.                           | (ESLint auto-discovery)  |
-| `selfExplanatory` | List of ESLint rule ids whose findings need **no** Markdown entry. The AI is told to fix them directly based on the ESLint message. | `[]` |
+| Field             | Meaning                                                                                                                             | Default                 |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `kbDir`           | Directory (relative to project root) that holds the Markdown knowledge base.                                                        | `.rules`                |
+| `eslintConfig`    | Optional path to an ESLint flat config. If absent, ESLint auto-discovers it.                                                        | (ESLint auto-discovery) |
+| `selfExplanatory` | List of ESLint rule ids whose findings need **no** Markdown entry. The AI is told to fix them directly based on the ESLint message. | `[]`                    |
 
 ### When to use `selfExplanatory`
 
-Some ESLint findings are already crystal clear from their message alone
-(e.g. `no-debugger`, `no-unused-vars`, `prefer-const`). For those rules
-maintaining a `.md` is overhead. List them in `selfExplanatory` and
-`lintkb` will:
+Some ESLint findings are already crystal clear from their message alone (e.g. `no-debugger`, `no-unused-vars`, `prefer-const`). Maintaining a `.md` for them is overhead. List them in `selfExplanatory` and `lintkb` will:
 
 - skip the KB lookup entirely,
-- emit an AI INSTRUCTION saying *"this rule is self-explanatory, fix
-  directly from the ESLint message"*,
+- emit an AI INSTRUCTION saying _"this rule is self-explanatory, fix directly from the ESLint message"_,
 - set `kbRequired: false` and `kbPath: null` in the JSON output.
 
 ---
 
 ## Rule ID → file name (deterministic)
 
-| ESLint rule id                          | Markdown file name                            |
-| --------------------------------------- | --------------------------------------------- |
-| `no-console`                            | `no-console.md`                               |
-| `eqeqeq`                                | `eqeqeq.md`                                   |
-| `@typescript-eslint/no-explicit-any`    | `typescript-eslint__no-explicit-any.md`       |
-| `@typescript-eslint/no-unused-vars`     | `typescript-eslint__no-unused-vars.md`        |
-| `react-hooks/exhaustive-deps`           | `react-hooks__exhaustive-deps.md`             |
-| `react/jsx-key`                         | `react__jsx-key.md`                           |
+| ESLint rule id                       | Markdown file name                      |
+| ------------------------------------ | --------------------------------------- |
+| `no-console`                         | `no-console.md`                         |
+| `eqeqeq`                             | `eqeqeq.md`                             |
+| `@typescript-eslint/no-explicit-any` | `typescript-eslint__no-explicit-any.md` |
+| `@typescript-eslint/no-unused-vars`  | `typescript-eslint__no-unused-vars.md`  |
+| `react-hooks/exhaustive-deps`        | `react-hooks__exhaustive-deps.md`       |
+| `react/jsx-key`                      | `react__jsx-key.md`                     |
 
 Normalization rules:
 
 - `/` becomes `__`
 - A leading `@scope/plugin` becomes `scope__plugin` (the leading `@` is dropped)
 
+This mapping is pure, deterministic, and covered by unit tests — so a rule id always resolves to the same file on every machine.
+
 ---
 
-## CLI
+## Programmatic API
 
-`lint` is the **default action**, so the path can be passed directly.
+`lintkb` can be used as a library in addition to the CLI. All public symbols are exported from the package root.
 
-| Command                              | Purpose                                                                                                      |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `lintkb init`                        | Creates `.lintkbrc.json` and the directory referenced by `kbDir`.                                            |
-| `lintkb [path]`                      | Default action. Runs ESLint on `path` (default `.`) and prints output augmented with AI INSTRUCTION blocks.  |
-| `lintkb [path] --format json`        | Same, but as JSON. Each finding includes `kbPath`, `kbExists`, `aiInstruction`.                              |
-| `lintkb lint [path]`                 | Same as `lintkb [path]` — kept for explicitness / backwards compatibility.                                   |
+```ts
+import {
+  loadConfig,
+  runEslint,
+  enrichFindings,
+  formatText,
+  formatJson,
+} from "lintkb";
 
-### Examples
+// 1. resolve config (walks upward from cwd to find .lintkbrc.json)
+const config = loadConfig(process.cwd());
 
-```bash
-lintkb                       # lint the whole project
-lintkb packages/core/src   # lint a specific path
-lintkb . --format json       # JSON output for AI consumers
+// 2. run ESLint and get raw findings
+const findings = await runEslint(".", config);
+
+// 3. enrich findings with KB metadata + AI INSTRUCTION blocks
+const result = enrichFindings(findings, config);
+
+// 4. render however you like
+console.log(formatText(result));
+// or:
+console.log(formatJson(result));
+
+// or consume the structured data directly
+for (const f of result.findings) {
+  console.log(f.relativeFilePath, f.ruleId, f.kbExists, f.aiInstruction);
+}
 ```
 
----
+### Exported types
 
-## Tech stack
+- `LintkbConfig`, `ResolvedConfig`
+- `Finding`, `EnrichedFinding`, `FindingSeverity`, `LintRunResult`
 
-- TypeScript 5
-- ESLint 9 (flat config, used programmatically)
-- `commander` for the CLI
-- `vitest` for tests
-- `tsup` for the bundle
-- AI instruction language: **English** (so it works with any agent)
+### Exported functions
 
----
-
-## Project layout
-
-```
-lintkb/
-├── package.json              # name "lintkb", bin "lintkb"
-├── tsconfig.json
-├── tsup.config.ts
-├── vitest.config.ts
-├── README.md                 # ← you are here
-├── src/
-│   ├── core/
-│   │   ├── config.ts         # load .lintkbrc.json + defaults
-│   │   ├── rule-resolver.ts  # ruleId → file name (deterministic)
-│   │   ├── rule-reader.ts    # check existence of <kbDir>/<file>.md
-│   │   ├── eslint-runner.ts  # run ESLint via its programmatic API
-│   │   ├── output-formatter.ts # text + JSON output, AI INSTRUCTION block
-│   │   └── types.ts
-│   ├── cli/
-│   │   ├── commands/
-│   │   │   ├── init.ts
-│   │   │   └── lint.ts
-│   │   └── index.ts          # commander entry
-│   └── index.ts              # library entry
-├── tests/
-│   ├── rule-resolver.test.ts
-│   ├── rule-reader.test.ts
-│   ├── output-formatter.test.ts
-│   └── config.test.ts
-└── examples/
-    └── demo-project/         # sample project with intentional violations
-        ├── .lintkbrc.json
-        ├── .rules/
-        │   └── typescript-eslint__no-explicit-any.md
-        ├── eslint.config.js
-        ├── src/bad-code.ts
-        └── package.json
-```
+- `loadConfig(cwd)` — locate and parse `.lintkbrc.json`, merge with defaults.
+- `runEslint(path, config)` — run ESLint programmatically, return normalized `Finding[]`.
+- `enrichFindings(findings, config)` — attach KB metadata and AI INSTRUCTION blocks.
+- `formatText(result)` / `formatJson(result)` — render the result.
+- `ruleIdToFileName(id)` / `ruleIdToKbRelativePath(id, kbDir)` — the deterministic rule-id mapping.
+- `kbEntryExists(path, projectRoot)` — filesystem check for a KB entry.
+- `buildAiInstruction(finding, kbPath, kbExists, kbRequired)` — build a single instruction block.
 
 ---
 
-## Acceptance criteria (PoC)
+## FAQ
 
-- [ ] `lintkb init` creates `.lintkbrc.json` and the directory referenced by `kbDir`.
-- [ ] `lintkb lint` shows, for **every** finding, an AI INSTRUCTION block including file path and line number.
-- [ ] Case A (KB present) and Case B (KB missing) are clearly distinguishable in the output.
-- [ ] Rule-id normalization is deterministic and covered by unit tests.
-- [ ] `--format json` output contains `kbPath`, `kbExists`, and `aiInstruction` for each finding.
-- [ ] Unit tests exist for `rule-resolver`, `rule-reader`, `output-formatter`, `config`.
-- [ ] At least one successful manual end-to-end test with a real AI agent:
-  - Case A: the agent reads an existing `.md` and fixes the finding.
-  - Case B: the agent detects a missing `.md`, collaborates with the user to create it, then fixes the finding.
+**Why an ESLint wrapper instead of a standalone tool?**
+ESLint already knows your project's rule set, plugin ecosystem, and file matching. Re-implementing that would mean fighting an ecosystem you already use. `lintkb` adds one layer on top: it links findings to documentation an AI can act on.
 
----
+**Why Markdown instead of a structured format?**
+Markdown is reviewable in pull requests, renders in every IDE, has zero schema overhead, and any AI agent can read it natively. The knowledge base is documentation first, machine input second.
 
-## Out of scope (PoC)
+**Why no built-in AI API integration?**
+The whole point is AI-agnosticism. `lintkb` produces text and JSON; whatever agent you use today (or switch to next year) can consume it without lintkb knowing about it. Zero vendor lock-in.
 
-- Monorepo layout
-- MCP server
-- Built-in AI API integration
-- Editor / LSP integration
-- Auto-fix
-- Legacy (non-flat) ESLint config support
-- Versioning / migration of KB entries
-- Inventing new ESLint rules
+**What if a rule has no useful project-specific guidance?**
+Add it to `selfExplanatory` in `.lintkbrc.json`. The AI will be told to fix it directly from the ESLint message — no `.md` required.
+
+**Does lintkb modify my code?**
+No. `lintkb` is read-only. It produces output. The AI agent — under user supervision — applies fixes.
+
+**Does lintkb work in CI?**
+Yes. Exit code `1` on any error-severity finding makes it CI-friendly. Use `--format json` for machine consumption.
+
+**Does it support legacy `.eslintrc` configs?**
+No. ESLint 9 flat config only.
 
 ---
 
-## Workflow with an AI agent
+## Contributing
 
-```
-┌──────────┐   npx lintkb lint   ┌────────────┐
-│ user/AI  │────────────────────▶│  lintkb    │
-└──────────┘                      └─────┬──────┘
-                                        │ findings + AI INSTRUCTION
-                                        ▼
-                                  ┌──────────┐
-                                  │  any AI  │
-                                  └────┬─────┘
-                                       │
-                ┌──────────────────────┴──────────────────────┐
-                ▼                                             ▼
-        ┌────────────────┐                         ┌──────────────────┐
-        │ KB entry found │                         │ KB entry missing │
-        │ → read .md     │                         │ → ask user       │
-        │ → apply fix    │                         │ → write .md      │
-        └────────────────┘                         │ → apply fix      │
-                                                   └──────────────────┘
-```
+Contributions are welcome. Please:
+
+- Use [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:` ...).
+- Run `npm run typecheck`, `npm test`, and `npm run build` before opening a PR.
+- Add or update unit tests for any change in `src/core/`.
+- Keep the AI instructions in `output-formatter.ts` in **English** so the package stays agent-agnostic.
+
+Repository: <https://github.com/armadacore/lintkb>
 
 ---
 
-## Status
+## License
 
-Proof of concept. Single npm package, ESLint 9 flat config, English AI instructions. Designed to stay small and KI-agnostic.
+[MIT](./LICENSE)
