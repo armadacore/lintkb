@@ -104,11 +104,22 @@ Normalization rules:
 
 ## CLI
 
+`lint` is the **default action**, so the path can be passed directly.
+
 | Command                              | Purpose                                                                                                      |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `npx lintkb init`                    | Creates `.lintkbrc.json` and the directory referenced by `kbDir`.                                            |
-| `npx lintkb lint [path]`             | Runs ESLint on `path` (default `.`) and prints standard output augmented with AI INSTRUCTION blocks.         |
-| `npx lintkb lint --format json`      | Same, but as JSON. Each finding includes `kbPath`, `kbExists`, `aiInstruction`.                              |
+| `lintkb init`                        | Creates `.lintkbrc.json` and the directory referenced by `kbDir`.                                            |
+| `lintkb [path]`                      | Default action. Runs ESLint on `path` (default `.`) and prints output augmented with AI INSTRUCTION blocks.  |
+| `lintkb [path] --format json`        | Same, but as JSON. Each finding includes `kbPath`, `kbExists`, `aiInstruction`.                              |
+| `lintkb lint [path]`                 | Same as `lintkb [path]` — kept for explicitness / backwards compatibility.                                   |
+
+### Examples
+
+```bash
+lintkb                       # lint the whole project
+lintkb packages/core/src   # lint a specific path
+lintkb . --format json       # JSON output for AI consumers
+```
 
 ---
 
