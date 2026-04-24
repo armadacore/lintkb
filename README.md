@@ -186,6 +186,46 @@ lintkb . --format json       # JSON output for AI consumers
 
 ---
 
+## Project layout
+
+```
+lintkb/
+├── package.json              # name "lintkb", bin "lintkb"
+├── tsconfig.json
+├── tsup.config.ts
+├── vitest.config.ts
+├── README.md                 # ← you are here
+├── src/
+│   ├── core/
+│   │   ├── config.ts         # load .lintkbrc.json + defaults
+│   │   ├── rule-resolver.ts  # ruleId → file name (deterministic)
+│   │   ├── rule-reader.ts    # check existence of <kbDir>/<file>.md
+│   │   ├── eslint-runner.ts  # run ESLint via its programmatic API
+│   │   ├── output-formatter.ts # text + JSON output, AI INSTRUCTION block
+│   │   └── types.ts
+│   ├── cli/
+│   │   ├── commands/
+│   │   │   ├── init.ts
+│   │   │   └── lint.ts
+│   │   └── index.ts          # commander entry
+│   └── index.ts              # library entry
+├── tests/
+│   ├── rule-resolver.test.ts
+│   ├── rule-reader.test.ts
+│   ├── output-formatter.test.ts
+│   └── config.test.ts
+└── examples/
+    └── demo-project/         # sample project with intentional violations
+        ├── .lintkbrc.json
+        ├── .rules/
+        │   └── typescript-eslint__no-explicit-any.md
+        ├── eslint.config.js
+        ├── src/bad-code.ts
+        └── package.json
+```
+
+---
+
 ## Acceptance criteria (PoC)
 
 - [ ] `lintkb init` creates `.lintkbrc.json` and the directory referenced by `kbDir`.
@@ -194,7 +234,9 @@ lintkb . --format json       # JSON output for AI consumers
 - [ ] Rule-id normalization is deterministic and covered by unit tests.
 - [ ] `--format json` output contains `kbPath`, `kbExists`, and `aiInstruction` for each finding.
 - [ ] Unit tests exist for `rule-resolver`, `rule-reader`, `output-formatter`, `config`.
-- [ ] At least one successful manual end-to-end test with a real AI agent.
+- [ ] At least one successful manual end-to-end test with a real AI agent:
+  - Case A: the agent reads an existing `.md` and fixes the finding.
+  - Case B: the agent detects a missing `.md`, collaborates with the user to create it, then fixes the finding.
 
 ---
 
@@ -208,6 +250,30 @@ lintkb . --format json       # JSON output for AI consumers
 - Legacy (non-flat) ESLint config support
 - Versioning / migration of KB entries
 - Inventing new ESLint rules
+
+---
+
+## Workflow with an AI agent
+
+```
+┌──────────┐   npx lintkb lint   ┌────────────┐
+│ user/AI  │────────────────────▶│  lintkb    │
+└──────────┘                      └─────┬──────┘
+                                        │ findings + AI INSTRUCTION
+                                        ▼
+                                  ┌──────────┐
+                                  │  any AI  │
+                                  └────┬─────┘
+                                       │
+                ┌──────────────────────┴──────────────────────┐
+                ▼                                             ▼
+        ┌────────────────┐                         ┌──────────────────┐
+        │ KB entry found │                         │ KB entry missing │
+        │ → read .md     │                         │ → ask user       │
+        │ → apply fix    │                         │ → write .md      │
+        └────────────────┘                         │ → apply fix      │
+                                                   └──────────────────┘
+```
 
 ---
 
