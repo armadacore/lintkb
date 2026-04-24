@@ -9,16 +9,27 @@
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
+  "engines": {
+    "node": ">=18.17.0"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build",
     "lintkb": "node dist/cli/index.js"
   },
   "keywords": [
@@ -27,15 +38,30 @@
     "ai",
     "knowledge-base",
     "typescript",
-    "agent"
+    "agent",
+    "claude",
+    "cursor",
+    "developer-experience"
   ],
   "license": "MIT",
+  "author": "Marcel Armada-Castellon",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marcel-armada-castellon/lintkb.git"
+  },
+  "bugs": {
+    "url": "https://github.com/marcel-armada-castellon/lintkb/issues"
+  },
+  "homepage": "https://github.com/marcel-armada-castellon/lintkb#readme",
   "dependencies": {
-    "commander": "^12.1.0",
+    "commander": "^12.1.0"
+  },
+  "peerDependencies": {
     "eslint": "^9.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "eslint": "^9.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0"

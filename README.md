@@ -14,6 +14,41 @@ Bridge the gap between *"ESLint says rule X is violated"* and *"the AI knows exa
 
 ---
 
+## Installation
+
+`lintkb` is published as a single npm package. ESLint 9+ is a **peer dependency** — bring your own.
+
+### From a local tarball (current PoC distribution)
+
+```bash
+# in the lintkb repo
+npm pack
+# → produces lintkb-<version>.tgz
+
+# in your target project
+npm install --save-dev /absolute/path/to/lintkb-<version>.tgz
+```
+
+### From npm (once published)
+
+```bash
+npm install --save-dev lintkb
+```
+
+### Requirements
+
+- Node.js `>=18.17.0`
+- ESLint `^9` already installed in the target project (flat config)
+
+### First run in your project
+
+```bash
+npx lintkb init    # creates .lintkbrc.json + .rules/
+npx lintkb         # lints the whole project
+```
+
+---
+
 ## How it works
 
 ```
