@@ -1,0 +1,43 @@
+{
+  "name": "lintkb",
+  "version": "0.1.0",
+  "description": "AI-agnostic ESLint wrapper that enriches lint findings with concrete AI instructions pointing to a project-local Markdown knowledge base.",
+  "type": "module",
+  "bin": {
+    "lintkb": "dist/cli/index.js"
+  },
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lintkb": "node dist/cli/index.js"
+  },
+  "keywords": [
+    "eslint",
+    "lint",
+    "ai",
+    "knowledge-base",
+    "typescript",
+    "agent"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.1.0",
+    "eslint": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}
