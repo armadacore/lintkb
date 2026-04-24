@@ -47,12 +47,12 @@
   "author": "Marcel Armada-Castellon",
   "repository": {
     "type": "git",
-    "url": "https://github.com/marcel-armada-castellon/lintkb.git"
+    "url": "https://github.com/armadacore/lintkb.git"
   },
   "bugs": {
-    "url": "https://github.com/marcel-armada-castellon/lintkb/issues"
+    "url": "https://github.com/armadacore/lintkb/issues"
   },
-  "homepage": "https://github.com/marcel-armada-castellon/lintkb#readme",
+  "homepage": "https://github.com/armadacore/lintkb#readme",
   "dependencies": {
     "commander": "^12.1.0"
   },
